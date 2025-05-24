@@ -5,10 +5,12 @@ import os
 
 intents = discord.Intents.default()
 intents.message_content = True
-intents.voice_states = True  # Wichtig für Voice-Status
+intents.guilds = True
+intents.voice_states = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
+# Speichert VoiceClient + Sink pro Guild, wenn Aufnahme aktiv ist
 recording_tasks = {}
 
 @bot.event
@@ -18,32 +20,41 @@ async def on_ready():
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def join(ctx, *, channel_name: str):
+    """Tritt Voice-Channel bei und startet Aufnahme."""
+    if ctx.guild.id in recording_tasks:
+        await ctx.send("❌ Bot nimmt bereits in diesem Server auf.")
+        return
+
     channel = discord.utils.get(ctx.guild.voice_channels, name=channel_name)
     if not channel:
-        await ctx.send("❌ Channel nicht gefunden!")
+        await ctx.send("❌ Voice-Channel nicht gefunden!")
         return
 
-    if ctx.guild.id in recording_tasks:
-        await ctx.send("❌ Bot nimmt bereits auf. Beende zuerst die Aufnahme mit !leave.")
+    try:
+        vc = await channel.connect()
+    except discord.ClientException:
+        await ctx.send("❌ Bot ist bereits in einem Voice-Channel!")
         return
 
-    vc = await channel.connect()
-    sink = discord.sinks.WaveSink()
+    await ctx.send(f"🎙️ Beigetreten zu `{channel.name}` und starte Aufnahme...")
 
     async def after_recording(sink, ctx):
         for user, audio in sink.audio_data.items():
-            filename = f"aufnahme_{user.name}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.wav"
+            timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+            filename = f"aufnahme_{user.name}_{timestamp}.wav"
             with open(filename, "wb") as f:
                 f.write(audio.file.read())
-            await ctx.send(f"✅ Aufnahme gespeichert für `{user.name}` als `{filename}`")
+            await ctx.send(f"✅ Aufnahme gespeichert: `{filename}` für `{user.name}`")
 
+    sink = discord.sinks.WaveSink()
     vc.start_recording(sink, after_recording, ctx)
     recording_tasks[ctx.guild.id] = (vc, sink)
-    await ctx.send(f"🎙️ Beigetreten zu `{channel.name}` und starte Aufnahme...")
+    print(f"Recording gestartet für Guild {ctx.guild.id}")
 
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def leave(ctx):
+    """Beendet Aufnahme und verlässt Voice-Channel."""
     if ctx.guild.id not in recording_tasks:
         await ctx.send("❌ Bot nimmt gerade nichts auf.")
         return
@@ -51,8 +62,9 @@ async def leave(ctx):
     vc, sink = recording_tasks[ctx.guild.id]
     vc.stop_recording()
     await vc.disconnect()
-    await ctx.send("🛑 Aufnahme beendet & Voice-Channel verlassen.")
     del recording_tasks[ctx.guild.id]
+    await ctx.send("🛑 Aufnahme beendet & Voice-Channel verlassen.")
+    print(f"Recording gestoppt für Guild {ctx.guild.id}")
 
 @join.error
 @leave.error
