@@ -1,12 +1,10 @@
 import discord
 from discord.ext import commands
-import asyncio
 import datetime
 
 intents = discord.Intents.default()
 intents.message_content = True
-intents.guilds = True
-intents.voice_states = True
+intents.voice_states = True  # Wichtig für Voice-Status
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
@@ -19,14 +17,17 @@ async def on_ready():
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def join(ctx, *, channel_name: str):
-    """[ADMIN] Tritt dem angegebenen Voice-Channel bei und startet die Aufnahme"""
     channel = discord.utils.get(ctx.guild.voice_channels, name=channel_name)
     if not channel:
         await ctx.send("❌ Channel nicht gefunden!")
         return
 
+    if ctx.guild.id in recording_tasks:
+        await ctx.send("❌ Bot nimmt bereits auf. Beende zuerst die Aufnahme mit !leave.")
+        return
+
     vc = await channel.connect()
-    await ctx.send(f"🎙️ Beigetreten zu `{channel.name}` und starte endlose Aufnahme...")
+    sink = discord.sinks.WaveSink()
 
     async def after_recording(sink, ctx):
         for user, audio in sink.audio_data.items():
@@ -35,32 +36,27 @@ async def join(ctx, *, channel_name: str):
                 f.write(audio.file.read())
             await ctx.send(f"✅ Aufnahme gespeichert für `{user.name}` als `{filename}`")
 
-    sink = discord.sinks.WaveSink()
     vc.start_recording(sink, after_recording, ctx)
     recording_tasks[ctx.guild.id] = (vc, sink)
+    await ctx.send(f"🎙️ Beigetreten zu `{channel.name}` und starte Aufnahme...")
 
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def leave(ctx):
-    """[ADMIN] Beendet die Aufnahme und verlässt den Voice-Channel"""
-    if ctx.guild.id in recording_tasks:
-        vc, sink = recording_tasks[ctx.guild.id]
-        vc.stop_recording()
-        await vc.disconnect()
-        await ctx.send("🛑 Aufnahme beendet & Voice-Channel verlassen.")
-        del recording_tasks[ctx.guild.id]
-    else:
+    if ctx.guild.id not in recording_tasks:
         await ctx.send("❌ Bot nimmt gerade nichts auf.")
+        return
+
+    vc, sink = recording_tasks[ctx.guild.id]
+    vc.stop_recording()
+    await vc.disconnect()
+    await ctx.send("🛑 Aufnahme beendet & Voice-Channel verlassen.")
+    del recording_tasks[ctx.guild.id]
 
 @join.error
 @leave.error
 async def permissions_error(ctx, error):
     if isinstance(error, commands.MissingPermissions):
         await ctx.send("🚫 Nur Administratoren dürfen diesen Befehl verwenden.")
-import os
 
-token = os.getenv("DISCORD_BOT_TOKEN")
-print(f"TOKEN VORHANDEN: {bool(token)}")
-bot.run(token)
-
-bot.run(os.getenv("DISCORD_BOT_TOKEN"))
+bot.run("DEIN_BOT_TOKEN")
