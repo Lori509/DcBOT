@@ -1,7 +1,7 @@
 py-cord==2.5.0
 discord.py[voice]==2.3.0
 discord-ext-audiorecorder
-pip list
+
 
 
 
