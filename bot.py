@@ -59,4 +59,4 @@ async def permissions_error(ctx, error):
     if isinstance(error, commands.MissingPermissions):
         await ctx.send("🚫 Nur Administratoren dürfen diesen Befehl verwenden.")
 
-bot.run(os.getenv("DISCORD_BOT_TOKEN" python bot.py))
+bot.run(os.getenv("DISCORD_BOT_TOKEN") python bot.py)
