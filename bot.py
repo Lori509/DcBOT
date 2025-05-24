@@ -57,5 +57,10 @@ async def leave(ctx):
 async def permissions_error(ctx, error):
     if isinstance(error, commands.MissingPermissions):
         await ctx.send("🚫 Nur Administratoren dürfen diesen Befehl verwenden.")
+import os
+
+token = os.getenv("DISCORD_BOT_TOKEN")
+print(f"TOKEN VORHANDEN: {bool(token)}")
+bot.run(token)
 
 bot.run(os.getenv("DISCORD_BOT_TOKEN"))
