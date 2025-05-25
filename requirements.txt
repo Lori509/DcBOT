@@ -1,5 +1,5 @@
 discord.py[voice]==2.3.0
-py -3 -m pip install --upgrade discord-ext-audiorec
+py -m pip install --upgrade discord-ext-audiorec
 
 
 
