@@ -1,5 +1,6 @@
 discord.py[voice]==2.3.0
-git+https://github.com/Ext-Creators/discord-ext-audiorecorder.git
+py-cord
+
 
 
 
